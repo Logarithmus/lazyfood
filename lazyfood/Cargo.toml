@@ -1,0 +1,8 @@
+[package]
+name = "lazyfood"
+version = "0.1.0"
+authors = ["Artur Sinila <freesoftware@logarithmus.dev>"]
+edition = "2018"
+
+[dependencies]
+lazyfood_lib = { path = "../lazyfood_lib" }
