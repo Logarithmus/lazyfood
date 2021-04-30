@@ -1,3 +1,3 @@
 fn main() {
-	println!("Hello, world!");
+	lazyfood_lib::execute().unwrap();
 }
