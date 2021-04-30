@@ -5,8 +5,9 @@ authors = ["Artur Sinila <freesoftware@logarithmus.dev>"]
 edition = "2018"
 
 [dependencies]
-async-std = "1.9.0"
+# async-std = "1.9.0"
 html5ever = "0.25.1"
-hyper = { version = "0.14.7", default-features = false, features = ["client", "http1", "http2"] }
-hyper-rustls = "0.22.1"
-tokio = { version = "1.5.0", default-features = false }
+reqwest = "0.11.3"
+# hyper = { version = "0.14.7", default-features = false, features = ["client", "http1", "http2"] }
+# hyper-rustls = "0.22.1"
+# tokio = { version = "1.5.0", default-features = false }
