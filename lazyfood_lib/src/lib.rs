@@ -2,20 +2,19 @@ pub mod backend;
 
 use reqwest::{IntoUrl, Client};
 use select::{document::Document, predicate::{Predicate, Attr, Name, Element}};
-use core::{fmt::{Debug, Display}, iter::Iterator};
+use core::{fmt::{self, Debug, Display}, iter::Iterator};
 use std::collections::HashMap;
-
 
 pub struct Money(u32);
 
 impl Display for Money {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.0 / 100, self.0 % 100)
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{:02}", self.0 / 100, self.0 % 100)
     }
 }
 
 impl Debug for Money {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
 }
