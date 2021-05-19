@@ -1,32 +1,18 @@
 pub mod backend;
+mod dto;
+mod error;
+
+pub use error::Error;
+pub use dto::{dish::*, order::*, address::*, identity::*};
+pub use backend::Backend;
 
 use reqwest::{IntoUrl, Client};
-use select::{document::Document, predicate::{Predicate, Attr, Name, Element}};
-use core::{fmt::{self, Debug, Display}, iter::Iterator};
+use select::{
+	document::Document,
+	predicate::{Predicate, Attr, Name, Element},
+};
+use rusty_money::{Money, FormattableCurrency, iso};
 use std::collections::HashMap;
-
-pub struct Money(u32);
-
-impl Display for Money {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{:02}", self.0 / 100, self.0 % 100)
-    }
-}
-
-impl Debug for Money {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self, f)
-    }
-}
-
-#[derive(Debug)]
-pub struct Dish<'a> {
-	pub id: String,
-	pub category_id: &'a str,
-	pub name: String,
-	pub mass: String,
-	pub price: Money,
-}
 
 #[tokio::main]
 async fn get_document<U: IntoUrl>(client: &Client, url: U) -> Result<Document, reqwest::Error> {
@@ -42,12 +28,14 @@ fn get_categories(doc: &Document) -> HashMap<String, String> {
 		.children()
 		.filter(Name("button"))
 		.iter()
-		.map(|el| (el.attr("data-filter").unwrap()[1..].to_string(), el.first_child().unwrap().text()))
+		.map(|el| {
+			(el.attr("data-filter").unwrap()[1..].to_string(), el.first_child().unwrap().text())
+		})
 		.filter(|cat| !cat.0.is_empty())
 		.collect()
 }
 
-fn get_dishes(doc: &Document) -> Vec<Dish> {
+fn get_dishes(doc: &Document) -> Vec<Dish<impl FormattableCurrency>> {
 	let dishes_predicate = Name("div").and(Attr("data-isotope-options", ()));
 	let dishes_selection = doc.find(dishes_predicate).into_selection();
 	dishes_selection
@@ -55,8 +43,12 @@ fn get_dishes(doc: &Document) -> Vec<Dish> {
 		.filter(Element)
 		.iter()
 		.map(|el| {
-			let order_button = el.find(Name("button").and(Attr("title", "Заказать"))).next().unwrap();
-			let parent_id = el.attr("class").unwrap().split_ascii_whitespace()
+			let order_button =
+				el.find(Name("button").and(Attr("title", "Заказать"))).next().unwrap();
+			let parent_id = el
+				.attr("class")
+				.unwrap()
+				.split_ascii_whitespace()
 				.find(|word| word.starts_with("parent_id"))
 				.unwrap();
 			let dish_info = el.find(Attr("class", "imageDataInfoRow")).next().unwrap();
@@ -65,23 +57,25 @@ fn get_dishes(doc: &Document) -> Vec<Dish> {
 			let price_text = price_node.text();
 			Dish {
 				id: order_button.attr("data-id").unwrap().to_string(),
-				category_id: parent_id,
+				category_id: parent_id.to_string(),
 				name: order_button.attr("data-title").unwrap().to_string(),
 				mass: mass_text,
-				price: Money(str::parse(&price_text).unwrap()),
+				price: Money::from_minor(str::parse(&price_text).unwrap(), iso::BYN),
+				..Dish::default()
 			}
 		})
 		.collect()
 }
 
-pub fn execute() -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute() -> Result<(), reqwest::Error> {
 	let client = reqwest::Client::new();
 	let document = get_document(&client, "https://donerking.by")?;
-	let categories = get_categories(&document);
+	let _categories = get_categories(&document);
 	let dishes = get_dishes(&document);
 	//dbg!(&categories, &dishes);
-	dishes.iter()
+	dishes
+		.iter()
 		.filter(|dish| dish.category_id == "parent_id_26")
-		.for_each(|dish| println!("{:#?}", dish));
-    Ok(())
+		.for_each(|dish| println!("{}", dish));
+	Ok(())
 }

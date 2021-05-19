@@ -1,17 +1,15 @@
-use crate::backend::Backend;
+use rusty_money::FormattableCurrency;
+use chrono::TimeZone;
+use crate::{Backend, Dish, Order};
 
 pub struct Donerking;
 
-impl Backend for Donerking {
-	fn categories(&self) -> Vec<String> {
+impl<C: FormattableCurrency, Tz: TimeZone> Backend<C, Tz> for Donerking {
+	fn fetch_menu(&self) -> Vec<Dish<C>> {
 		todo!()
 	}
 
-	fn menu(&self) -> Vec<String> {
-		todo!()
-	}
-
-	fn order(&self, dish: &str) {
+	fn place_order(&self, _order: &Order<C, Tz>) {
 		todo!()
 	}
 }
