@@ -57,11 +57,13 @@ fn get_dishes(doc: &Document) -> Vec<Dish<impl FormattableCurrency>> {
 			let price_text = price_node.text();
 			Dish {
 				id: order_button.attr("data-id").unwrap().to_string(),
-				category_id: parent_id.to_string(),
+				category: parent_id.to_string(),
 				name: order_button.attr("data-title").unwrap().to_string(),
-				mass: mass_text,
-				price: Money::from_minor(str::parse(&price_text).unwrap(), iso::BYN),
-				..Dish::default()
+				ingredients: "unknown".to_string(),
+				variants: vec![DishVariant {
+					mass: mass_text,
+					price: Money::from_minor(str::parse(&price_text).unwrap(), iso::BYN),
+				}]
 			}
 		})
 		.collect()
@@ -75,7 +77,7 @@ pub fn execute() -> Result<(), reqwest::Error> {
 	//dbg!(&categories, &dishes);
 	dishes
 		.iter()
-		.filter(|dish| dish.category_id == "parent_id_26")
+		.filter(|dish| dish.category == "parent_id_26")
 		.for_each(|dish| println!("{}", dish));
 	Ok(())
 }
