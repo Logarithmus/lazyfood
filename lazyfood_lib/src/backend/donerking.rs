@@ -212,6 +212,9 @@ impl Donerking {
 					id: order_button.attr("data-id").unwrap().to_string(),
 					category: categories.get(category_id).cloned().unwrap_or("Unknown".to_owned()),
 					name: order_button.attr("data-title").unwrap().to_string(),
+					features: DishFeatures {
+						
+					},
 					ingredients: Self::extract_ingredients(&dish_doc),
 					nutrition_facts: Self::extract_nutrition_facts(&dish_doc),
 					variants: vec![DishVariant {

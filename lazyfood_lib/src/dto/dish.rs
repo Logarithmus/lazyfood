@@ -11,9 +11,23 @@ pub struct Dish<'a, C: Debug + FormattableCurrency> {
 	pub category: String,
 	pub name: String,
 	pub ingredients: Vec<String>,
+	pub features: DishFeatures<'a, C>,
 	pub nutrition_facts: Option<NutritionFacts>,
 	pub variants: Vec<DishVariant<'a, C>>,
 	pub additions: Vec<Addition<'a, C>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum DishFeatures<'a, C: Debug + FormattableCurrency> {
+	Kebab { pita_types: Vec<DishFeature<'a, C>> },
+	Pizza { base_types: Vec<DishFeature<'a, C>>, crust_types: Vec<DishFeature<'a, C>> },
+	Other,
+}
+
+#[derive(Debug, Clone)]
+pub struct DishFeature<'a, C: Debug + FormattableCurrency> {
+	pub name: String,
+	pub price: Money<'a, C>,
 }
 
 #[derive(Clone)]
