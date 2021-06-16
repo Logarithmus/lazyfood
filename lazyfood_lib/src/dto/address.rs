@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct Address {
 	pub locality: String,
 	pub street: String,

@@ -1,6 +1,7 @@
+use core::fmt::Display;
 use validator::Validate;
 
-#[derive(Debug, Validate)]
+#[derive(Debug, Clone, Validate)]
 pub struct Identity {
 	pub first_name: String,
 	pub last_name: String,

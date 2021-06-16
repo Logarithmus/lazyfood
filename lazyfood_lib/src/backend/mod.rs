@@ -1,10 +1,15 @@
 pub mod donerking;
 
-use rusty_money::FormattableCurrency;
-use chrono::TimeZone;
-use crate::{Dish, Order};
+use crate::{Menu, Order, error::*};
+use core::fmt::Debug;
 
-pub trait Backend<C: FormattableCurrency, Tz: TimeZone> {
-	fn fetch_menu(&self) -> Vec<Dish<C>>;
-	fn place_order(&self, order: &Order<C, Tz>);
+pub trait Backend {
+	type Currency: Debug + rusty_money::FormattableCurrency;
+	type Timezone: chrono::TimeZone;
+
+	fn fetch_menu(&self) -> reqwest::Result<Menu>;
+	fn place_order(
+		&self,
+		order: &Order<Self::Currency, Self::Timezone>,
+	) -> Result<String, OrderError>;
 }
