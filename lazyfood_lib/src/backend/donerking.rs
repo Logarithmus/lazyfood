@@ -4,14 +4,12 @@ use reqwest::{
 	header::{self, HeaderMap, HeaderValue},
 	IntoUrl, Url,
 };
-use select::{document::Document, predicate::*};
+use select::{document::Document, predicate::*, node::Node};
 use std::collections::HashMap;
-use crate::{
-	Backend, Dish, DishVariant, Order, Menu, Category, NutritionFacts, Addition, AdditionVariant,
-	Quantity, error::*,
-};
+use crate::{OrderError, backend::Backend, dto::{address::*, dish::*, identity::*, menu::*, order::*}};
 use regex::Regex;
 use core::convert::TryFrom;
+use serde::Serialize;
 
 lazy_static! {
 	static ref SITE_URL: Url = Url::parse("https://donerking.by").unwrap();
@@ -24,6 +22,7 @@ lazy_static! {
 }
 
 const CURRENCY: &iso::Currency = iso::BYN;
+const TIMEZONE: chrono_tz::Tz = chrono_tz::Europe::Minsk;
 
 pub struct Donerking {
 	client: Client,
@@ -32,7 +31,11 @@ pub struct Donerking {
 impl Donerking {
 	pub fn new() -> Self {
 		Donerking {
-			client: Client::builder().user_agent(&*USER_AGENT).cookie_store(true).build().unwrap(),
+			client: Client::builder()
+				.user_agent(&*USER_AGENT)
+				.cookie_store(true)
+				.build()
+				.unwrap(),
 		}
 	}
 
@@ -143,9 +146,7 @@ impl Donerking {
 		))
 	}
 
-	fn extract_additions(&self, dish_doc: &Document) -> Vec<Addition<rusty_money::iso::Currency>> {
-		let additions_html = self.extract_additions_html(dish_doc).unwrap();
-		let additions_doc = Document::from(additions_html.as_str());
+	fn extract_additions(additions_doc: &Document) -> Vec<Addition<iso::Currency>> {
 		additions_doc
 			.find(Name("tr").and(Class("souce_row")))
 			.into_selection()
@@ -177,7 +178,34 @@ impl Donerking {
 			.collect()
 	}
 
-	fn get_menu(&self) -> reqwest::Result<Menu> {
+	fn extract_pita_types<'a>(additions_doc: &Document) -> Vec<DishFeature<iso::Currency>> {
+		additions_doc
+			.find(Name("label").and(Class("radio-container")))
+			.into_selection()
+			.iter()
+			.map(|node| node.find(Text).next())
+			.filter_map(|opt| opt)
+			.map(|node| DishFeature {
+				name: node.text(),
+				price: Money::from_minor(0, CURRENCY),
+			})
+			.collect()
+	}
+
+	fn extract_features<'a>(additions_doc: &Document, dish_type: DishType) -> DishFeatures<iso::Currency> {
+		match dish_type {
+			DishType::Kebab => DishFeatures::Kebab {
+			    pita_types: Self::extract_pita_types(additions_doc),
+			},
+			DishType::Pizza => DishFeatures::Pizza {
+			    base_types: vec![],
+			    crust_types: vec![],
+			},
+			DishType::Other => DishFeatures::Other,
+		}
+	}
+
+	fn get_menu(&self) -> reqwest::Result<Menu<<Self as Backend>::Currency>> {
 		let index_doc = self.get_document(SITE_URL.clone())?;
 		let categories = Self::extract_categories(&index_doc);
 		let dishes_predicate = Name("div").and(Attr("data-isotope-options", ()));
@@ -208,13 +236,15 @@ impl Donerking {
 					.unwrap();
 				let dish_doc = self.get_document(SITE_URL.join(dish_link).unwrap()).unwrap();
 
+				let category_name = categories.get(category_id).cloned().unwrap_or("Unknown".to_owned());
+				let additions_html = self.extract_additions_html(&dish_doc).unwrap();
+				let additions_doc = Document::from(additions_html.as_str());
+				let additions = Self::extract_additions(&additions_doc);
+				let features = Self::extract_features(&additions_doc, DishType::from(category_name.as_str()));
 				let dish = Dish {
 					id: order_button.attr("data-id").unwrap().to_string(),
-					category: categories.get(category_id).cloned().unwrap_or("Unknown".to_owned()),
+					category: category_name.clone(),
 					name: order_button.attr("data-title").unwrap().to_string(),
-					features: DishFeatures {
-						
-					},
 					ingredients: Self::extract_ingredients(&dish_doc),
 					nutrition_facts: Self::extract_nutrition_facts(&dish_doc),
 					variants: vec![DishVariant {
@@ -222,13 +252,16 @@ impl Donerking {
 						quantity: Quantity::try_from(quantity_text.as_str()).unwrap(),
 						price: Money::from_minor(str::parse(&price_text).unwrap(), CURRENCY),
 					}],
-					additions: self.extract_additions(&dish_doc),
+					features,
+					additions
 				};
 				dbg!(&dish);
 				dish
 			})
 			.collect();
-		Ok(Menu { dishes, categories })
+		let menu = Menu { dishes, categories };
+		println!("{}", serde_json::to_string_pretty(&menu).unwrap());
+		Ok(menu)
 	}
 }
 
@@ -236,13 +269,13 @@ impl Backend for Donerking {
 	type Currency = iso::Currency;
 	type Timezone = chrono::FixedOffset;
 
-	fn fetch_menu(&self) -> reqwest::Result<Menu> {
+	fn fetch_menu(&self) -> reqwest::Result<Menu<Self::Currency>> {
 		self.get_menu()
 	}
 
 	fn place_order(
 		&self,
-		_order: &Order<Self::Currency, Self::Timezone>,
+		_order: &Order<Self::Currency>,
 	) -> Result<String, OrderError> {
 		todo!()
 	}
